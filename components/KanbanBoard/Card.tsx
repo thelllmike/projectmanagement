@@ -70,18 +70,19 @@ export default function Card({ card, index, labels, teamMembers, onUpdate, onDel
   };
 
   const handleLabelToggle = (labelId: string) => {
-    const newLabels = card.labels.includes(labelId)
-      ? card.labels.filter((l) => l !== labelId)
-      : [...card.labels, labelId];
+    const currentLabels = card.labels || [];
+    const newLabels = currentLabels.includes(labelId)
+      ? currentLabels.filter((l) => l !== labelId)
+      : [...currentLabels, labelId];
     onUpdate(card.id, { labels: newLabels });
   };
 
   const handleAssigneeChange = (userId: string | undefined) => {
-    onUpdate(card.id, { assigneeId: userId });
+    onUpdate(card.id, { assignee_id: userId || null });
   };
 
-  const cardLabels = labels.filter((l) => card.labels.includes(l.id));
-  const assignee = teamMembers.find((m) => m.id === card.assigneeId);
+  const cardLabels = labels.filter((l) => (card.labels || []).includes(l.id));
+  const assignee = teamMembers.find((m) => m.id === card.assignee_id);
 
   return (
     <Draggable draggableId={card.id} index={index}>
@@ -182,7 +183,7 @@ export default function Card({ card, index, labels, teamMembers, onUpdate, onDel
                 <div className={styles.assigneeOptions}>
                   <button
                     onClick={() => handleAssigneeChange(undefined)}
-                    className={`${styles.assigneeOption} ${!card.assigneeId ? styles.assigneeSelected : ""}`}
+                    className={`${styles.assigneeOption} ${!card.assignee_id ? styles.assigneeSelected : ""}`}
                   >
                     <span className={styles.assigneeOptionNone}>—</span>
                     Unassigned
@@ -191,7 +192,7 @@ export default function Card({ card, index, labels, teamMembers, onUpdate, onDel
                     <button
                       key={member.id}
                       onClick={() => handleAssigneeChange(member.id)}
-                      className={`${styles.assigneeOption} ${card.assigneeId === member.id ? styles.assigneeSelected : ""}`}
+                      className={`${styles.assigneeOption} ${card.assignee_id === member.id ? styles.assigneeSelected : ""}`}
                     >
                       <span
                         className={styles.assigneeOptionAvatar}
@@ -212,7 +213,7 @@ export default function Card({ card, index, labels, teamMembers, onUpdate, onDel
                     <button
                       key={label.id}
                       onClick={() => handleLabelToggle(label.id)}
-                      className={`${styles.labelOption} ${card.labels.includes(label.id) ? styles.labelSelected : ""}`}
+                      className={`${styles.labelOption} ${(card.labels || []).includes(label.id) ? styles.labelSelected : ""}`}
                       style={{ "--label-color": label.color } as React.CSSProperties}
                     >
                       <span

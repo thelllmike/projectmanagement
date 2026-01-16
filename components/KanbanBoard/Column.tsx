@@ -43,11 +43,13 @@ export default function Column({ column, labels, teamMembers, onAddCard, onUpdat
     }
   };
 
+  const cards = column.cards || [];
+
   return (
     <div className={styles.column}>
       <div className={styles.columnHeader}>
         <span className={styles.columnTitle}>{column.title}</span>
-        <span className={styles.cardCount}>{column.cards.length}</span>
+        <span className={styles.cardCount}>{cards.length}</span>
       </div>
       <Droppable droppableId={column.id}>
         {(provided) => (
@@ -56,7 +58,7 @@ export default function Column({ column, labels, teamMembers, onAddCard, onUpdat
             {...provided.droppableProps}
             className={styles.cardList}
           >
-            {column.cards.map((card, index) => (
+            {cards.map((card, index) => (
               <Card
                 key={card.id}
                 card={card}

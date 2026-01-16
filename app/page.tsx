@@ -26,17 +26,18 @@ export default function Home() {
     }
   }, [user, isLoading, router]);
 
-  const handleCreateTeam = (e: React.FormEvent) => {
+  const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newTeamName.trim()) {
-      createTeam(newTeamName.trim());
+      await createTeam(newTeamName.trim());
       setNewTeamName("");
       setShowCreateTeam(false);
       setShowTeamMenu(false);
     }
   };
 
-  const userTeams = teams.filter((t) => user?.teamIds.includes(t.id));
+  // Teams are already filtered by user membership from AuthContext
+  const userTeams = teams;
 
   if (isLoading) {
     return (

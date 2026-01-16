@@ -1,39 +1,93 @@
 export type Priority = "high" | "medium" | "low" | "none";
 
-export interface Label {
+// Database types (from Supabase)
+export interface Profile {
   id: string;
   name: string;
-  color: string;
-}
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string; // Color or initials for avatar
-  teamIds: string[];
+  avatar_color: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Team {
   id: string;
   name: string;
-  ownerId: string;
-  memberIds: string[];
-  createdAt: number;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface KanbanCard {
+export interface TeamMember {
   id: string;
-  title: string;
-  priority: Priority;
-  labels: string[];
-  assigneeId?: string; // User ID
+  team_id: string;
+  user_id: string;
+  role: "owner" | "admin" | "member";
+  created_at: string;
+  // Joined data
+  profile?: Profile;
+}
+
+export interface Label {
+  id: string;
+  team_id: string;
+  name: string;
+  color: string;
+  created_at: string;
 }
 
 export interface KanbanColumn {
   id: string;
+  team_id: string;
   title: string;
-  cards: KanbanCard[];
+  position: number;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  cards?: KanbanCard[];
+}
+
+export interface KanbanCard {
+  id: string;
+  column_id: string;
+  title: string;
+  description?: string;
+  priority: Priority;
+  assignee_id?: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  // Joined data - labels is array of label IDs
+  labels?: string[];
+  assignee?: Profile;
+}
+
+export interface CardLabel {
+  card_id: string;
+  label_id: string;
+}
+
+export interface TodoItem {
+  id: string;
+  team_id: string;
+  text: string;
+  completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Note {
+  id: string;
+  team_id: string;
+  content: string;
+  updated_at: string;
+}
+
+// Frontend types (transformed from DB)
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
 }
 
 export interface KanbanData {
@@ -41,41 +95,11 @@ export interface KanbanData {
   labels: Label[];
 }
 
-export interface TeamWorkspace {
-  teamId: string;
-  kanban: KanbanData;
-  todos: TodoItem[];
-  notes: string;
-}
-
-export interface TodoItem {
-  id: string;
-  text: string;
-  completed: boolean;
-}
-
 // Auth types
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
 }
-
-// Default labels
-export const DEFAULT_LABELS: Label[] = [
-  { id: "bug", name: "Bug", color: "#e57373" },
-  { id: "feature", name: "Feature", color: "#81c784" },
-  { id: "design", name: "Design", color: "#ba68c8" },
-  { id: "docs", name: "Docs", color: "#64b5f6" },
-  { id: "refactor", name: "Refactor", color: "#ffb74d" },
-];
-
-// Default columns
-export const DEFAULT_COLUMNS: KanbanColumn[] = [
-  { id: "todo", title: "Todo", cards: [] },
-  { id: "in-progress", title: "In Progress", cards: [] },
-  { id: "review", title: "Review", cards: [] },
-  { id: "complete", title: "Complete", cards: [] },
-];
 
 // Avatar colors for users
 export const AVATAR_COLORS = [

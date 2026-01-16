@@ -1,44 +1,107 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { TodoItem } from "@/types";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { createClient } from "@/lib/supabase/client";
 import styles from "./styles.module.css";
 
 interface TodoListProps {
   teamId: string;
 }
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
 export default function TodoList({ teamId }: TodoListProps) {
-  const [todos, setTodos] = useLocalStorage<TodoItem[]>(`vibe-pm-todos-${teamId}`, []);
+  const [todos, setTodos] = useState<TodoItem[]>([]);
   const [newTodoText, setNewTodoText] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleAddTodo = (e: React.FormEvent) => {
+  const supabase = createClient();
+
+  // Fetch todos
+  const fetchTodos = useCallback(async () => {
+    const { data } = await supabase
+      .from("todos")
+      .select("*")
+      .eq("team_id", teamId)
+      .order("created_at", { ascending: true });
+
+    setTodos(data || []);
+    setIsLoading(false);
+  }, [teamId, supabase]);
+
+  useEffect(() => {
+    fetchTodos();
+  }, [fetchTodos]);
+
+  const handleAddTodo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newTodoText.trim()) {
-      setTodos((prev) => [
-        ...prev,
-        { id: generateId(), text: newTodoText.trim(), completed: false },
-      ]);
+      const { data: todo, error } = await supabase
+        .from("todos")
+        .insert({
+          team_id: teamId,
+          text: newTodoText.trim(),
+          completed: false,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error adding todo:", error);
+        return;
+      }
+
+      setTodos((prev) => [...prev, todo]);
       setNewTodoText("");
     }
   };
 
-  const handleToggle = (id: string) => {
+  const handleToggle = async (id: string) => {
+    const todo = todos.find((t) => t.id === id);
+    if (!todo) return;
+
+    const { error } = await supabase
+      .from("todos")
+      .update({ completed: !todo.completed, updated_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error toggling todo:", error);
+      return;
+    }
+
     setTodos((prev) =>
-      prev.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
+      prev.map((t) =>
+        t.id === id ? { ...t, completed: !t.completed } : t
       )
     );
   };
 
-  const handleDelete = (id: string) => {
-    setTodos((prev) => prev.filter((todo) => todo.id !== id));
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase
+      .from("todos")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting todo:", error);
+      return;
+    }
+
+    setTodos((prev) => prev.filter((t) => t.id !== id));
   };
+
+  if (isLoading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <span className={styles.title}>Quick Tasks</span>
+        </div>
+        <div className={styles.list}>
+          <div className={styles.emptyState}>Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>

@@ -1,267 +1,240 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { User, Team, AVATAR_COLORS } from "@/types";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useMemo } from "react";
+import { User as SupabaseUser } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
+import { User, Team, Profile, AVATAR_COLORS } from "@/types";
 
 interface AuthContextType {
   user: User | null;
-  users: User[];
+  supabaseUser: SupabaseUser | null;
   teams: Team[];
   currentTeam: Team | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
-  createTeam: (name: string) => Team;
-  joinTeam: (teamId: string) => boolean;
+  logout: () => Promise<void>;
+  createTeam: (name: string) => Promise<Team | null>;
   switchTeam: (teamId: string) => void;
-  getTeamMembers: (teamId: string) => User[];
-  inviteToTeam: (teamId: string, email: string) => { success: boolean; error?: string };
+  getTeamMembers: (teamId: string) => Promise<User[]>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
-function getRandomColor() {
-  return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
-}
-
-interface StoredUser extends User {
-  password: string;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<StoredUser[]>([]);
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load data from localStorage on mount
-  useEffect(() => {
-    const storedUsers = localStorage.getItem("vibe-pm-users");
-    const storedTeams = localStorage.getItem("vibe-pm-teams");
-    const storedCurrentUser = localStorage.getItem("vibe-pm-current-user");
-    const storedCurrentTeam = localStorage.getItem("vibe-pm-current-team");
+  // Memoize supabase client to prevent infinite loops
+  const supabase = useMemo(() => createClient(), []);
 
-    if (storedUsers) setUsers(JSON.parse(storedUsers));
-    if (storedTeams) setTeams(JSON.parse(storedTeams));
-    if (storedCurrentUser) setUser(JSON.parse(storedCurrentUser));
-    if (storedCurrentTeam) setCurrentTeam(JSON.parse(storedCurrentTeam));
+  // Fetch user profile
+  const fetchProfile = useCallback(async (userId: string, email: string): Promise<User | null> => {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
 
-    setIsLoading(false);
-  }, []);
-
-  // Save users to localStorage
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem("vibe-pm-users", JSON.stringify(users));
+    if (profile) {
+      return {
+        id: profile.id,
+        name: profile.name,
+        email: email,
+        avatar: profile.avatar_color,
+      };
     }
-  }, [users, isLoading]);
+    return null;
+  }, [supabase]);
 
-  // Save teams to localStorage
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem("vibe-pm-teams", JSON.stringify(teams));
-    }
-  }, [teams, isLoading]);
+  // Fetch user's teams
+  const fetchTeams = useCallback(async (userId: string): Promise<Team[]> => {
+    const { data: memberData } = await supabase
+      .from("team_members")
+      .select("team_id")
+      .eq("user_id", userId);
 
-  // Save current user to localStorage
+    if (!memberData || memberData.length === 0) return [];
+
+    const teamIds = memberData.map((m) => m.team_id);
+    const { data: teamsData } = await supabase
+      .from("teams")
+      .select("*")
+      .in("id", teamIds);
+
+    return teamsData || [];
+  }, [supabase]);
+
+  // Initialize auth state
   useEffect(() => {
-    if (!isLoading) {
-      if (user) {
-        localStorage.setItem("vibe-pm-current-user", JSON.stringify(user));
-      } else {
-        localStorage.removeItem("vibe-pm-current-user");
+    const initAuth = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+
+      if (authUser) {
+        setSupabaseUser(authUser);
+        const profile = await fetchProfile(authUser.id, authUser.email || "");
+        setUser(profile);
+
+        const userTeams = await fetchTeams(authUser.id);
+        setTeams(userTeams);
+
+        // Restore last selected team or use first team
+        const savedTeamId = localStorage.getItem("vibe-pm-current-team");
+        const teamToSelect = userTeams.find((t) => t.id === savedTeamId) || userTeams[0];
+        setCurrentTeam(teamToSelect || null);
       }
-    }
-  }, [user, isLoading]);
 
-  // Save current team to localStorage
-  useEffect(() => {
-    if (!isLoading) {
-      if (currentTeam) {
-        localStorage.setItem("vibe-pm-current-team", JSON.stringify(currentTeam));
-      } else {
-        localStorage.removeItem("vibe-pm-current-team");
+      setIsLoading(false);
+    };
+
+    initAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        setSupabaseUser(session.user);
+        const profile = await fetchProfile(session.user.id, session.user.email || "");
+        setUser(profile);
+
+        const userTeams = await fetchTeams(session.user.id);
+        setTeams(userTeams);
+        setCurrentTeam(userTeams[0] || null);
+      } else if (event === "SIGNED_OUT") {
+        setSupabaseUser(null);
+        setUser(null);
+        setTeams([]);
+        setCurrentTeam(null);
       }
-    }
-  }, [currentTeam, isLoading]);
+    });
 
-  const login = async (email: string, password: string) => {
-    const foundUser = users.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    );
+    return () => subscription.unsubscribe();
+  }, [supabase, fetchProfile, fetchTeams]);
 
-    if (!foundUser) {
-      return { success: false, error: "Invalid email or password" };
-    }
-
-    const { password: _, ...userWithoutPassword } = foundUser;
-    setUser(userWithoutPassword);
-
-    // Set first team as current if user has teams
-    if (foundUser.teamIds.length > 0) {
-      const firstTeam = teams.find((t) => t.id === foundUser.teamIds[0]);
-      if (firstTeam) setCurrentTeam(firstTeam);
-    }
-
-    return { success: true };
-  };
-
-  const register = async (name: string, email: string, password: string) => {
-    // Check if email already exists
-    if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
-      return { success: false, error: "Email already registered" };
-    }
-
-    const newUser: StoredUser = {
-      id: generateId(),
-      name,
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-      avatar: getRandomColor(),
-      teamIds: [],
-    };
+    });
 
-    setUsers((prev) => [...prev, newUser]);
-
-    // Auto-login after registration
-    const { password: _, ...userWithoutPassword } = newUser;
-    setUser(userWithoutPassword);
-
+    if (error) {
+      return { success: false, error: error.message };
+    }
     return { success: true };
   };
 
-  const logout = () => {
-    setUser(null);
-    setCurrentTeam(null);
+  const register = async (name: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+          avatar_color: avatarColor,
+        },
+      },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
   };
 
-  const createTeam = (name: string): Team => {
-    if (!user) throw new Error("Must be logged in to create a team");
-
-    const newTeam: Team = {
-      id: generateId(),
-      name,
-      ownerId: user.id,
-      memberIds: [user.id],
-      createdAt: Date.now(),
-    };
-
-    setTeams((prev) => [...prev, newTeam]);
-
-    // Update user's teamIds
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === user.id ? { ...u, teamIds: [...u.teamIds, newTeam.id] } : u
-      )
-    );
-
-    // Update current user
-    setUser((prev) =>
-      prev ? { ...prev, teamIds: [...prev.teamIds, newTeam.id] } : prev
-    );
-
-    // Set as current team
-    setCurrentTeam(newTeam);
-
-    return newTeam;
+  const logout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem("vibe-pm-current-team");
   };
 
-  const joinTeam = (teamId: string): boolean => {
-    if (!user) return false;
+  const createTeam = async (name: string): Promise<Team | null> => {
+    console.log("createTeam called with:", name);
+    console.log("supabaseUser:", supabaseUser);
 
-    const team = teams.find((t) => t.id === teamId);
-    if (!team) return false;
+    if (!supabaseUser) {
+      console.error("No supabaseUser - cannot create team");
+      return null;
+    }
 
-    // Already a member
-    if (team.memberIds.includes(user.id)) return true;
+    // First check if profile exists
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", supabaseUser.id)
+      .single();
 
-    // Add user to team
-    setTeams((prev) =>
-      prev.map((t) =>
-        t.id === teamId ? { ...t, memberIds: [...t.memberIds, user.id] } : t
-      )
-    );
+    console.log("Profile check:", profile, profileError);
 
-    // Add team to user
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === user.id ? { ...u, teamIds: [...u.teamIds, teamId] } : u
-      )
-    );
+    if (!profile) {
+      console.error("No profile found for user - creating one");
+      // Create profile if missing
+      await supabase.from("profiles").insert({
+        id: supabaseUser.id,
+        name: supabaseUser.user_metadata?.name || supabaseUser.email?.split("@")[0] || "User",
+        avatar_color: "#d4a574",
+      });
+    }
 
-    setUser((prev) =>
-      prev ? { ...prev, teamIds: [...prev.teamIds, teamId] } : prev
-    );
+    const { data: team, error } = await supabase
+      .from("teams")
+      .insert({
+        name,
+        owner_id: supabaseUser.id,
+      })
+      .select()
+      .single();
 
-    return true;
+    console.log("Team creation result:", team, error);
+
+    if (error || !team) {
+      console.error("Error creating team:", error);
+      return null;
+    }
+
+    setTeams((prev) => [...prev, team]);
+    setCurrentTeam(team);
+    localStorage.setItem("vibe-pm-current-team", team.id);
+    return team;
   };
 
   const switchTeam = (teamId: string) => {
     const team = teams.find((t) => t.id === teamId);
-    if (team && user?.teamIds.includes(teamId)) {
+    if (team) {
       setCurrentTeam(team);
+      localStorage.setItem("vibe-pm-current-team", teamId);
     }
   };
 
-  const getTeamMembers = (teamId: string): User[] => {
-    const team = teams.find((t) => t.id === teamId);
-    if (!team) return [];
+  const getTeamMembers = async (teamId: string): Promise<User[]> => {
+    const { data: members } = await supabase
+      .from("team_members")
+      .select(`
+        user_id,
+        profile:profiles(id, name, avatar_color)
+      `)
+      .eq("team_id", teamId);
 
-    return users
-      .filter((u) => team.memberIds.includes(u.id))
-      .map(({ password, ...user }) => user);
-  };
+    if (!members) return [];
 
-  const inviteToTeam = (teamId: string, email: string) => {
-    const invitedUser = users.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase()
-    );
-
-    if (!invitedUser) {
-      return { success: false, error: "User not found" };
-    }
-
-    const team = teams.find((t) => t.id === teamId);
-    if (!team) {
-      return { success: false, error: "Team not found" };
-    }
-
-    if (team.memberIds.includes(invitedUser.id)) {
-      return { success: false, error: "User already in team" };
-    }
-
-    // Add user to team
-    setTeams((prev) =>
-      prev.map((t) =>
-        t.id === teamId
-          ? { ...t, memberIds: [...t.memberIds, invitedUser.id] }
-          : t
-      )
-    );
-
-    // Add team to user
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === invitedUser.id
-          ? { ...u, teamIds: [...u.teamIds, teamId] }
-          : u
-      )
-    );
-
-    return { success: true };
+    return members.map((m) => {
+      const profile = m.profile as unknown as Profile;
+      return {
+        id: profile.id,
+        name: profile.name,
+        email: "",
+        avatar: profile.avatar_color,
+      };
+    });
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        users: users.map(({ password, ...u }) => u),
+        supabaseUser,
         teams,
         currentTeam,
         isLoading,
@@ -269,10 +242,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         createTeam,
-        joinTeam,
         switchTeam,
         getTeamMembers,
-        inviteToTeam,
       }}
     >
       {children}
