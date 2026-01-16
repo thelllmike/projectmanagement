@@ -1,0 +1,103 @@
+.container {
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+/* Header */
+.header {
+  padding: var(--space-lg) var(--space-lg);
+  padding-bottom: var(--space-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.indicator {
+  width: 6px;
+  height: 6px;
+  background: var(--success);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-out);
+}
+
+.indicatorVisible {
+  opacity: 1;
+}
+
+/* Textarea wrapper */
+.textareaWrapper {
+  flex: 1;
+  padding: 0 var(--space-sm) var(--space-sm);
+  display: flex;
+  position: relative;
+}
+
+/* Decorative line numbers area */
+.textareaWrapper::before {
+  content: '';
+  position: absolute;
+  left: var(--space-sm);
+  top: 0;
+  bottom: var(--space-sm);
+  width: 32px;
+  background: linear-gradient(
+    to right,
+    var(--bg-secondary) 0%,
+    transparent 100%
+  );
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* Textarea */
+.textarea {
+  flex: 1;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-md);
+  padding-left: var(--space-xl);
+  font-size: 14px;
+  color: var(--text-primary);
+  resize: none;
+  line-height: 1.8;
+  font-family: var(--font-body);
+  border-radius: 4px;
+  transition: all 0.2s var(--ease-out);
+}
+
+.textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.textarea::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Subtle writing effect */
+.textarea::selection {
+  background: var(--accent-glow);
+}
+
+/* Character count (optional visual element) */
+.footer {
+  padding: var(--space-sm) var(--space-lg);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+  letter-spacing: 0.02em;
+}

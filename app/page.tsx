@@ -1,95 +1,193 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import styles from "./page.module.css";
+import TodoList from "@/components/TodoList/TodoList";
+import Notes from "@/components/Notes/Notes";
+import { useAuth } from "@/contexts/AuthContext";
+
+const KanbanBoard = dynamic(
+  () => import("@/components/KanbanBoard/KanbanBoard"),
+  { ssr: false }
+);
 
 export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>app/page.tsx</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const { user, teams, currentTeam, isLoading, logout, createTeam, switchTeam } = useAuth();
+  const router = useRouter();
+  const [showTeamMenu, setShowTeamMenu] = useState(false);
+  const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
 
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, isLoading, router]);
+
+  const handleCreateTeam = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newTeamName.trim()) {
+      createTeam(newTeamName.trim());
+      setNewTeamName("");
+      setShowCreateTeam(false);
+      setShowTeamMenu(false);
+    }
+  };
+
+  const userTeams = teams.filter((t) => user?.teamIds.includes(t.id));
+
+  if (isLoading) {
+    return (
+      <div className={styles.loadingContainer}>
+        <span className={styles.loadingText}>Loading...</span>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  // Show create team screen if user has no teams
+  if (userTeams.length === 0) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.onboarding}>
+          <h1 className={styles.onboardingTitle}>Welcome to Vibe PM</h1>
+          <p className={styles.onboardingText}>
+            Create your first workspace to get started
+          </p>
+          <form onSubmit={handleCreateTeam} className={styles.onboardingForm}>
+            <input
+              type="text"
+              value={newTeamName}
+              onChange={(e) => setNewTeamName(e.target.value)}
+              placeholder="Workspace name"
+              className={styles.onboardingInput}
+              autoFocus
             />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
+            <button type="submit" className={styles.onboardingButton}>
+              Create Workspace
+            </button>
+          </form>
         </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <div className={styles.headerLeft}>
+          <span className={styles.logo}>Vibe PM</span>
+
+          {/* Team selector */}
+          <div className={styles.teamSelector}>
+            <button
+              onClick={() => setShowTeamMenu(!showTeamMenu)}
+              className={styles.teamButton}
+            >
+              <span className={styles.teamName}>{currentTeam?.name || "Select workspace"}</span>
+              <span className={styles.teamArrow}>▾</span>
+            </button>
+
+            {showTeamMenu && (
+              <div className={styles.teamMenu}>
+                <div className={styles.teamMenuHeader}>Workspaces</div>
+                {userTeams.map((team) => (
+                  <button
+                    key={team.id}
+                    onClick={() => {
+                      switchTeam(team.id);
+                      setShowTeamMenu(false);
+                    }}
+                    className={`${styles.teamMenuItem} ${currentTeam?.id === team.id ? styles.teamMenuItemActive : ""}`}
+                  >
+                    {team.name}
+                  </button>
+                ))}
+                <div className={styles.teamMenuDivider} />
+                {showCreateTeam ? (
+                  <form onSubmit={handleCreateTeam} className={styles.createTeamForm}>
+                    <input
+                      type="text"
+                      value={newTeamName}
+                      onChange={(e) => setNewTeamName(e.target.value)}
+                      placeholder="Workspace name"
+                      className={styles.createTeamInput}
+                      autoFocus
+                    />
+                    <div className={styles.createTeamActions}>
+                      <button type="submit" className={styles.createTeamSubmit}>
+                        Create
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCreateTeam(false);
+                          setNewTeamName("");
+                        }}
+                        className={styles.createTeamCancel}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <button
+                    onClick={() => setShowCreateTeam(true)}
+                    className={styles.teamMenuCreate}
+                  >
+                    + New workspace
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className={styles.headerRight}>
+          <div className={styles.userInfo}>
+            <span
+              className={styles.userAvatar}
+              style={{ backgroundColor: user.avatar }}
+            >
+              {user.name.charAt(0).toUpperCase()}
+            </span>
+            <span className={styles.userName}>{user.name}</span>
+          </div>
+          <button onClick={logout} className={styles.logoutButton}>
+            Sign out
+          </button>
+        </div>
+      </header>
+
+      {currentTeam ? (
+        <main className={styles.main}>
+          <section className={styles.kanbanSection}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionTitle}>Board</span>
+            </div>
+            <div className={styles.kanbanWrapper}>
+              <KanbanBoard teamId={currentTeam.id} />
+            </div>
+          </section>
+          <aside className={styles.sidebar}>
+            <div className={styles.sidebarSection}>
+              <TodoList teamId={currentTeam.id} />
+            </div>
+            <div className={styles.sidebarSection}>
+              <Notes teamId={currentTeam.id} />
+            </div>
+          </aside>
+        </main>
+      ) : (
+        <div className={styles.noTeam}>
+          <p>Select a workspace to get started</p>
+        </div>
+      )}
     </div>
   );
 }

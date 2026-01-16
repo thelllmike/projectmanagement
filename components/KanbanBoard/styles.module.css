@@ -1,0 +1,522 @@
+.board {
+  display: flex;
+  gap: var(--space-lg);
+  height: 100%;
+  overflow-x: auto;
+  padding-bottom: var(--space-sm);
+}
+
+/* Column */
+.column {
+  flex: 1;
+  min-width: 240px;
+  max-width: 300px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  position: relative;
+  animation: scaleIn 0.4s var(--ease-out) both;
+}
+
+.column:nth-child(1) { animation-delay: 0s; }
+.column:nth-child(2) { animation-delay: 0.08s; }
+.column:nth-child(3) { animation-delay: 0.16s; }
+.column:nth-child(4) { animation-delay: 0.24s; }
+
+/* Column header */
+.columnHeader {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-tertiary);
+}
+
+.columnTitle {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.cardCount {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 3px 10px;
+  border-radius: 12px;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* Card list */
+.cardList {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+  min-height: 120px;
+}
+
+/* Add card button */
+.addCardButton {
+  padding: var(--space-md) var(--space-lg);
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: left;
+  border-top: 1px solid var(--border-subtle);
+  transition: all 0.2s var(--ease-out);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.addCardButton::before {
+  content: '+';
+  font-size: 16px;
+  font-weight: 300;
+  opacity: 0.6;
+  transition: all 0.2s var(--ease-out);
+}
+
+.addCardButton:hover {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.addCardButton:hover::before {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* Card */
+.card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  cursor: grab;
+  position: relative;
+  transition: all 0.2s var(--ease-out);
+  animation: slideUp 0.3s var(--ease-out) both;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+  transition: background 0.2s var(--ease-out);
+}
+
+.card:hover {
+  border-color: var(--border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.card:hover::before {
+  background: var(--accent);
+}
+
+.card:last-child {
+  margin-bottom: 0;
+}
+
+.cardDragging {
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  cursor: grabbing;
+  border-color: var(--accent);
+  transform: rotate(2deg) scale(1.02);
+}
+
+.cardDragging::before {
+  background: var(--accent);
+}
+
+/* Card content */
+.cardContent {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.cardTitle {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-primary);
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.cardInput {
+  flex: 1;
+  font-size: 14px;
+  background: transparent;
+  color: var(--text-primary);
+  width: 100%;
+  padding: 0;
+  line-height: 1.5;
+}
+
+/* Card actions */
+.cardActions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s var(--ease-out);
+}
+
+.card:hover .cardActions {
+  opacity: 1;
+}
+
+.cardButton {
+  padding: var(--space-xs) var(--space-sm);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border-radius: 3px;
+  transition: all 0.15s var(--ease-out);
+}
+
+.cardButton:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.deleteButton:hover {
+  color: #c97070;
+  background: rgba(201, 112, 112, 0.1);
+}
+
+/* New card input */
+.newCardInput {
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  animation: scaleIn 0.2s var(--ease-spring);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.newCardInputField {
+  width: 100%;
+  font-size: 14px;
+  background: transparent;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.newCardActions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.saveButton {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--accent);
+  color: var(--bg-deep);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border-radius: 4px;
+  transition: all 0.2s var(--ease-out);
+}
+
+.saveButton:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.cancelButton {
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border-radius: 4px;
+  transition: all 0.15s var(--ease-out);
+}
+
+.cancelButton:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+/* Empty state */
+.cardList:empty::before {
+  content: 'No cards yet';
+  display: block;
+  text-align: center;
+  padding: var(--space-xl) var(--space-md);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* Priority colors */
+.priorityHigh::before {
+  background: #e57373 !important;
+}
+
+.priorityMedium::before {
+  background: #ffb74d !important;
+}
+
+.priorityLow::before {
+  background: #81c784 !important;
+}
+
+/* Card labels */
+.cardLabels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: var(--space-sm);
+}
+
+.cardLabel {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  color: rgba(0, 0, 0, 0.8);
+  text-transform: uppercase;
+}
+
+/* Card menu */
+.cardMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: var(--space-sm);
+  min-width: 180px;
+  box-shadow: var(--shadow-lg);
+  animation: scaleIn 0.15s var(--ease-out);
+  margin-top: var(--space-xs);
+}
+
+.menuSection {
+  padding: var(--space-sm);
+}
+
+.menuSection:not(:last-child) {
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-sm);
+  padding-bottom: var(--space-md);
+}
+
+.menuLabel {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-sm);
+}
+
+/* Priority options */
+.priorityOptions {
+  display: flex;
+  gap: 4px;
+}
+
+.priorityOption {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  transition: all 0.15s var(--ease-out);
+}
+
+.priorityOption:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border);
+}
+
+.prioritySelected {
+  border-color: var(--text-secondary) !important;
+}
+
+.priorityHighOption {
+  color: #e57373;
+}
+
+.priorityHighOption:hover,
+.priorityHighOption.prioritySelected {
+  background: rgba(229, 115, 115, 0.15);
+  border-color: #e57373;
+}
+
+.priorityMediumOption {
+  color: #ffb74d;
+}
+
+.priorityMediumOption:hover,
+.priorityMediumOption.prioritySelected {
+  background: rgba(255, 183, 77, 0.15);
+  border-color: #ffb74d;
+}
+
+.priorityLowOption {
+  color: #81c784;
+}
+
+.priorityLowOption:hover,
+.priorityLowOption.prioritySelected {
+  background: rgba(129, 199, 132, 0.15);
+  border-color: #81c784;
+}
+
+.priorityNoneOption {
+  color: var(--text-muted);
+}
+
+/* Label options */
+.labelOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.labelOption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: left;
+  transition: all 0.15s var(--ease-out);
+  border: 1px solid transparent;
+}
+
+.labelOption:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.labelSelected {
+  background: var(--bg-tertiary);
+  border-color: var(--label-color);
+}
+
+.labelDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Card assignee display */
+.cardAssignee {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.assigneeAvatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.7);
+  flex-shrink: 0;
+}
+
+.assigneeName {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Assignee options in menu */
+.assigneeOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.assigneeOption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: left;
+  transition: all 0.15s var(--ease-out);
+  border: 1px solid transparent;
+}
+
+.assigneeOption:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.assigneeSelected {
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.assigneeOptionAvatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.7);
+  flex-shrink: 0;
+}
+
+.assigneeOptionNone {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
