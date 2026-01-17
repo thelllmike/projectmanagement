@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -13,7 +13,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   // Handle email confirmation code
@@ -26,12 +25,13 @@ export default function LoginPage() {
         if (exchangeError) {
           setError("Email confirmation failed: " + exchangeError.message);
         } else {
-          router.push("/");
+          // Full page refresh to ensure auth state is properly loaded
+          window.location.href = "/";
         }
       }
     };
     handleCodeExchange();
-  }, [searchParams, router]);
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +41,9 @@ export default function LoginPage() {
     const result = await login(email, password);
 
     if (result.success) {
-      router.push("/");
+      // Full page refresh to ensure auth state is properly loaded
+      window.location.href = "/";
+      return;
     } else {
       setError(result.error || "Login failed");
     }

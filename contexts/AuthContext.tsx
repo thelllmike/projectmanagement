@@ -121,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("Auth state change:", event);
 
       if (event === "SIGNED_IN" && session?.user) {
+        setIsLoading(true); // Show loading while fetching profile/teams
         setSupabaseUser(session.user);
         try {
           const profile = await fetchProfile(session.user.id, session.user.email || "");
@@ -186,6 +187,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem("vibe-pm-current-team");
+    // Full page refresh to ensure clean state
+    window.location.href = "/login";
   };
 
   const createTeam = async (name: string): Promise<Team | null> => {
