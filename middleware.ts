@@ -54,17 +54,28 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // Refresh session if expired - this is crucial for session persistence
+  // getUser() makes a request to Supabase Auth server and refreshes the token if needed
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  // If there's an auth error (like expired refresh token), clear the session
+  if (error) {
+    // Clear auth cookies if session is invalid
+    response.cookies.delete("sb-access-token");
+    response.cookies.delete("sb-refresh-token");
+  }
 
   // Protected routes - redirect to login if not authenticated
-  if (!user && !request.nextUrl.pathname.startsWith("/login") && !request.nextUrl.pathname.startsWith("/register")) {
+  const isAuthPage = request.nextUrl.pathname.startsWith("/login") || request.nextUrl.pathname.startsWith("/register");
+
+  if (!user && !isAuthPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
   // Redirect authenticated users away from auth pages
-  if (user && (request.nextUrl.pathname.startsWith("/login") || request.nextUrl.pathname.startsWith("/register"))) {
+  if (user && isAuthPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

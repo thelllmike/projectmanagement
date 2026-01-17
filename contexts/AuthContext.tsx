@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useMemo } from "react";
-import { User as SupabaseUser } from "@supabase/supabase-js";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useMemo, useRef } from "react";
+import { User as SupabaseUser, AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { User, Team, Profile, AVATAR_COLORS } from "@/types";
 
@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!memberData || memberData.length === 0) return [];
 
-    const teamIds = memberData.map((m) => m.team_id);
+    const teamIds = memberData.map((m: { team_id: string }) => m.team_id);
     const { data: teamsData } = await supabase
       .from("teams")
       .select("*")
@@ -68,45 +68,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return teamsData || [];
   }, [supabase]);
 
+  // Track if auth has been initialized
+  const authInitialized = useRef(false);
+
   // Initialize auth state
   useEffect(() => {
+    // Prevent double initialization in strict mode
+    if (authInitialized.current) return;
+    authInitialized.current = true;
+
     const initAuth = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      try {
+        // First try to get session (faster, uses cache)
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (authUser) {
-        setSupabaseUser(authUser);
-        const profile = await fetchProfile(authUser.id, authUser.email || "");
-        setUser(profile);
+        if (sessionError) {
+          console.error("Session error:", sessionError);
+          setIsLoading(false);
+          return;
+        }
 
-        const userTeams = await fetchTeams(authUser.id);
-        setTeams(userTeams);
+        if (session?.user) {
+          setSupabaseUser(session.user);
 
-        // Restore last selected team or use first team
-        const savedTeamId = localStorage.getItem("vibe-pm-current-team");
-        const teamToSelect = userTeams.find((t) => t.id === savedTeamId) || userTeams[0];
-        setCurrentTeam(teamToSelect || null);
+          try {
+            const profile = await fetchProfile(session.user.id, session.user.email || "");
+            setUser(profile);
+
+            const userTeams = await fetchTeams(session.user.id);
+            setTeams(userTeams);
+
+            // Restore last selected team or use first team
+            const savedTeamId = localStorage.getItem("vibe-pm-current-team");
+            const teamToSelect = userTeams.find((t) => t.id === savedTeamId) || userTeams[0];
+            setCurrentTeam(teamToSelect || null);
+          } catch (profileError) {
+            console.error("Error fetching profile/teams:", profileError);
+            // User is authenticated but profile fetch failed - still allow access
+          }
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      } finally {
+        setIsLoading(false);
       }
-
-      setIsLoading(false);
     };
 
     initAuth();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+      console.log("Auth state change:", event);
+
       if (event === "SIGNED_IN" && session?.user) {
         setSupabaseUser(session.user);
-        const profile = await fetchProfile(session.user.id, session.user.email || "");
-        setUser(profile);
+        try {
+          const profile = await fetchProfile(session.user.id, session.user.email || "");
+          setUser(profile);
 
-        const userTeams = await fetchTeams(session.user.id);
-        setTeams(userTeams);
-        setCurrentTeam(userTeams[0] || null);
+          const userTeams = await fetchTeams(session.user.id);
+          setTeams(userTeams);
+          setCurrentTeam(userTeams[0] || null);
+        } catch (error) {
+          console.error("Error in SIGNED_IN handler:", error);
+        }
+        setIsLoading(false);
       } else if (event === "SIGNED_OUT") {
         setSupabaseUser(null);
         setUser(null);
         setTeams([]);
         setCurrentTeam(null);
+        setIsLoading(false);
+      } else if (event === "TOKEN_REFRESHED") {
+        // Session was refreshed, user is still authenticated
+        console.log("Token refreshed");
+      } else if (event === "INITIAL_SESSION") {
+        // Initial session loaded - handled by initAuth
+        console.log("Initial session loaded");
       }
     });
 
@@ -219,8 +257,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!members) return [];
 
-    return members.map((m) => {
-      const profile = m.profile as unknown as Profile;
+    return members.map((m: { user_id: string; profile: unknown }) => {
+      const profile = m.profile as Profile;
       return {
         id: profile.id,
         name: profile.name,

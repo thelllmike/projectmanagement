@@ -3,6 +3,23 @@ import { Priority } from "@/types";
 
 const supabase = createClient();
 
+interface DbColumn {
+  id: string;
+  team_id: string;
+  title: string;
+  position: number;
+}
+
+interface DbCard {
+  id: string;
+  column_id: string;
+  title: string;
+  priority: Priority;
+  assignee_id?: string | null;
+  position: number;
+  card_labels?: { label_id: string }[];
+}
+
 // Fetch all columns with cards for a team
 export async function getKanbanData(teamId: string) {
   const [columnsResult, labelsResult] = await Promise.all([
@@ -22,7 +39,7 @@ export async function getKanbanData(teamId: string) {
 
   // Fetch cards for each column
   const columnsWithCards = await Promise.all(
-    columns.map(async (column) => {
+    columns.map(async (column: DbColumn) => {
       const { data: cards } = await supabase
         .from("kanban_cards")
         .select(`
@@ -35,9 +52,9 @@ export async function getKanbanData(teamId: string) {
 
       return {
         ...column,
-        cards: (cards || []).map((card) => ({
+        cards: (cards || []).map((card: DbCard) => ({
           ...card,
-          labels: card.card_labels?.map((cl: { label_id: string }) => cl.label_id) || [],
+          labels: card.card_labels?.map((cl) => cl.label_id) || [],
         })),
       };
     })
@@ -157,5 +174,5 @@ export async function getCardLabels(cardId: string): Promise<string[]> {
     .select("label_id")
     .eq("card_id", cardId);
 
-  return data?.map((cl) => cl.label_id) || [];
+  return data?.map((cl: { label_id: string }) => cl.label_id) || [];
 }

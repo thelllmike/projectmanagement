@@ -18,17 +18,19 @@ export default function LoginPage() {
 
   // Handle email confirmation code
   useEffect(() => {
-    const code = searchParams.get("code");
-    if (code) {
-      const supabase = createClient();
-      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-        if (error) {
-          setError("Email confirmation failed: " + error.message);
+    const handleCodeExchange = async () => {
+      const code = searchParams.get("code");
+      if (code) {
+        const supabase = createClient();
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          setError("Email confirmation failed: " + exchangeError.message);
         } else {
           router.push("/");
         }
-      });
-    }
+      }
+    };
+    handleCodeExchange();
   }, [searchParams, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {

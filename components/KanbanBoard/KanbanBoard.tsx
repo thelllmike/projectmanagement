@@ -12,6 +12,23 @@ interface KanbanBoardProps {
   teamId: string;
 }
 
+interface DbColumn {
+  id: string;
+  team_id: string;
+  title: string;
+  position: number;
+}
+
+interface DbCard {
+  id: string;
+  column_id: string;
+  title: string;
+  priority: Priority;
+  assignee_id?: string | null;
+  position: number;
+  card_labels?: { label_id: string }[];
+}
+
 export default function KanbanBoard({ teamId }: KanbanBoardProps) {
   const { getTeamMembers } = useAuth();
   const [columns, setColumns] = useState<KanbanColumn[]>([]);
@@ -41,7 +58,7 @@ export default function KanbanBoard({ teamId }: KanbanBoardProps) {
     if (columnsData) {
       // Fetch cards for each column
       const columnsWithCards = await Promise.all(
-        columnsData.map(async (column) => {
+        columnsData.map(async (column: DbColumn) => {
           const { data: cards } = await supabase
             .from("kanban_cards")
             .select(`
@@ -53,9 +70,9 @@ export default function KanbanBoard({ teamId }: KanbanBoardProps) {
 
           return {
             ...column,
-            cards: (cards || []).map((card) => ({
+            cards: (cards || []).map((card: DbCard) => ({
               ...card,
-              labels: card.card_labels?.map((cl: { label_id: string }) => cl.label_id) || [],
+              labels: card.card_labels?.map((cl) => cl.label_id) || [],
             })),
           };
         })

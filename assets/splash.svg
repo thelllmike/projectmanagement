@@ -1,0 +1,29 @@
+<svg width="2732" height="2732" viewBox="0 0 2732 2732" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="2732" height="2732" fill="#0f0f0f"/>
+
+  <!-- Ambient glow -->
+  <ellipse cx="1000" cy="800" rx="1200" ry="800" fill="#d4a574" opacity="0.03"/>
+
+  <!-- Center icon - Kanban representation -->
+  <g transform="translate(1116, 1116)">
+    <!-- Kanban columns -->
+    <rect x="-200" y="-150" width="100" height="300" rx="12" fill="#1a1a1a" stroke="#333" stroke-width="2"/>
+    <rect x="-50" y="-150" width="100" height="300" rx="12" fill="#1a1a1a" stroke="#333" stroke-width="2"/>
+    <rect x="100" y="-150" width="100" height="300" rx="12" fill="#1a1a1a" stroke="#333" stroke-width="2"/>
+
+    <!-- Cards -->
+    <rect x="-185" y="-130" width="70" height="50" rx="6" fill="#252525"/>
+    <rect x="-185" y="-60" width="70" height="50" rx="6" fill="#d4a574"/>
+
+    <rect x="-35" y="-130" width="70" height="50" rx="6" fill="#252525"/>
+    <rect x="-35" y="-60" width="70" height="50" rx="6" fill="#252525"/>
+    <rect x="-35" y="10" width="70" height="50" rx="6" fill="#d4a574"/>
+
+    <rect x="115" y="-130" width="70" height="50" rx="6" fill="#4ade80"/>
+  </g>
+
+  <!-- App name -->
+  <text x="1366" y="1550" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="500" fill="#e5e5e5" text-anchor="middle">Vibe PM</text>
+  <text x="1366" y="1620" font-family="system-ui, -apple-system, sans-serif" font-size="32" fill="#888" text-anchor="middle">Project Management</text>
+</svg>
