@@ -93,7 +93,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           try {
             const profile = await fetchProfile(session.user.id, session.user.email || "");
-            setUser(profile);
+            // If profile fetch failed, create a minimal user object
+            if (profile) {
+              setUser(profile);
+            } else {
+              setUser({
+                id: session.user.id,
+                name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
+                email: session.user.email || "",
+                avatar: session.user.user_metadata?.avatar_color || "#d4a574",
+              });
+            }
 
             const userTeams = await fetchTeams(session.user.id);
             setTeams(userTeams);
@@ -104,7 +114,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setCurrentTeam(teamToSelect || null);
           } catch (profileError) {
             console.error("Error fetching profile/teams:", profileError);
-            // User is authenticated but profile fetch failed - still allow access
+            // User is authenticated but profile fetch failed - still allow access with minimal user
+            setUser({
+              id: session.user.id,
+              name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
+              email: session.user.email || "",
+              avatar: "#d4a574",
+            });
           }
         }
       } catch (error) {
@@ -125,13 +141,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSupabaseUser(session.user);
         try {
           const profile = await fetchProfile(session.user.id, session.user.email || "");
-          setUser(profile);
+          // If profile fetch failed, create a minimal user object
+          if (profile) {
+            setUser(profile);
+          } else {
+            setUser({
+              id: session.user.id,
+              name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
+              email: session.user.email || "",
+              avatar: session.user.user_metadata?.avatar_color || "#d4a574",
+            });
+          }
 
           const userTeams = await fetchTeams(session.user.id);
           setTeams(userTeams);
           setCurrentTeam(userTeams[0] || null);
         } catch (error) {
           console.error("Error in SIGNED_IN handler:", error);
+          // Still set a minimal user so app doesn't get stuck
+          setUser({
+            id: session.user.id,
+            name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
+            email: session.user.email || "",
+            avatar: "#d4a574",
+          });
         }
         setIsLoading(false);
       } else if (event === "SIGNED_OUT") {
