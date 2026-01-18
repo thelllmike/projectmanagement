@@ -68,19 +68,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return teamsData || [];
   }, [supabase]);
 
-  // Track if auth has been initialized
-  const authInitialized = useRef(false);
-
   // Initialize auth state
   useEffect(() => {
-    // Prevent double initialization in strict mode
-    if (authInitialized.current) return;
-    authInitialized.current = true;
+    let isMounted = true;
 
     const initAuth = async () => {
+      console.log("initAuth starting...");
       try {
         // First try to get session (faster, uses cache)
+        console.log("Getting session...");
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        console.log("Session result:", session ? "has session" : "no session", sessionError);
+
+        if (!isMounted) return;
 
         if (sessionError) {
           console.error("Session error:", sessionError);
@@ -89,44 +89,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (session?.user) {
+          console.log("User found, setting supabaseUser...");
           setSupabaseUser(session.user);
 
+          // Create minimal user immediately to prevent loading state
+          const minimalUser = {
+            id: session.user.id,
+            name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
+            email: session.user.email || "",
+            avatar: session.user.user_metadata?.avatar_color || "#d4a574",
+          };
+          setUser(minimalUser);
+          console.log("Minimal user set:", minimalUser.name);
+
+          // Now try to fetch full profile (non-blocking)
           try {
             const profile = await fetchProfile(session.user.id, session.user.email || "");
-            // If profile fetch failed, create a minimal user object
-            if (profile) {
+            if (isMounted && profile) {
               setUser(profile);
-            } else {
-              setUser({
-                id: session.user.id,
-                name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
-                email: session.user.email || "",
-                avatar: session.user.user_metadata?.avatar_color || "#d4a574",
-              });
+              console.log("Full profile loaded");
             }
 
             const userTeams = await fetchTeams(session.user.id);
-            setTeams(userTeams);
-
-            // Restore last selected team or use first team
-            const savedTeamId = localStorage.getItem("vibe-pm-current-team");
-            const teamToSelect = userTeams.find((t) => t.id === savedTeamId) || userTeams[0];
-            setCurrentTeam(teamToSelect || null);
+            if (isMounted) {
+              setTeams(userTeams);
+              const savedTeamId = localStorage.getItem("vibe-pm-current-team");
+              const teamToSelect = userTeams.find((t) => t.id === savedTeamId) || userTeams[0];
+              setCurrentTeam(teamToSelect || null);
+              console.log("Teams loaded:", userTeams.length);
+            }
           } catch (profileError) {
             console.error("Error fetching profile/teams:", profileError);
-            // User is authenticated but profile fetch failed - still allow access with minimal user
-            setUser({
-              id: session.user.id,
-              name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
-              email: session.user.email || "",
-              avatar: "#d4a574",
-            });
+            // User already set with minimal data, so this is fine
           }
+        } else {
+          console.log("No session, user not logged in");
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          console.log("Setting isLoading to false");
+          setIsLoading(false);
+        }
       }
     };
 
@@ -182,7 +187,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [supabase, fetchProfile, fetchTeams]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
