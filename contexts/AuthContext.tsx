@@ -194,14 +194,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase, fetchProfile, fetchTeams]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    const { error } = await supabase.auth.signInWithPassword({
+    console.log("Login attempt for:", email);
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
+      console.error("Login error:", error);
       return { success: false, error: error.message };
     }
+
+    console.log("Login successful, session:", data.session ? "exists" : "missing");
+
+    // Immediately set the user to prevent loading state
+    if (data.session?.user) {
+      setSupabaseUser(data.session.user);
+      setUser({
+        id: data.session.user.id,
+        name: data.session.user.user_metadata?.name || data.session.user.email?.split("@")[0] || "User",
+        email: data.session.user.email || "",
+        avatar: data.session.user.user_metadata?.avatar_color || "#d4a574",
+      });
+      setIsLoading(false);
+    }
+
     return { success: true };
   };
 
