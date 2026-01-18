@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useMemo, useRef } from "react";
-import { User as SupabaseUser, AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useMemo } from "react";
+import { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { User, Team, Profile, AVATAR_COLORS } from "@/types";
 
@@ -28,195 +28,118 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Memoize supabase client to prevent infinite loops
   const supabase = useMemo(() => createClient(), []);
 
-  // Fetch user profile
-  const fetchProfile = useCallback(async (userId: string, email: string): Promise<User | null> => {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+  // Helper to create user object from session
+  const createUserFromSession = (sessionUser: SupabaseUser): User => ({
+    id: sessionUser.id,
+    name: sessionUser.user_metadata?.name || sessionUser.email?.split("@")[0] || "User",
+    email: sessionUser.email || "",
+    avatar: sessionUser.user_metadata?.avatar_color || "#d4a574",
+  });
 
-    if (profile) {
-      return {
-        id: profile.id,
-        name: profile.name,
-        email: email,
-        avatar: profile.avatar_color,
-      };
-    }
-    return null;
-  }, [supabase]);
+  // Fetch user's teams (non-blocking)
+  const loadTeams = useCallback(async (userId: string) => {
+    try {
+      const { data: memberData } = await supabase
+        .from("team_members")
+        .select("team_id")
+        .eq("user_id", userId);
 
-  // Fetch user's teams
-  const fetchTeams = useCallback(async (userId: string): Promise<Team[]> => {
-    const { data: memberData } = await supabase
-      .from("team_members")
-      .select("team_id")
-      .eq("user_id", userId);
-
-    if (!memberData || memberData.length === 0) return [];
-
-    const teamIds = memberData.map((m: { team_id: string }) => m.team_id);
-    const { data: teamsData } = await supabase
-      .from("teams")
-      .select("*")
-      .in("id", teamIds);
-
-    return teamsData || [];
-  }, [supabase]);
-
-  // Initialize auth state
-  useEffect(() => {
-    let isMounted = true;
-
-    const initAuth = async () => {
-      console.log("initAuth starting...");
-      try {
-        // First try to get session (faster, uses cache)
-        console.log("Getting session...");
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        console.log("Session result:", session ? "has session" : "no session", sessionError);
-
-        if (!isMounted) return;
-
-        if (sessionError) {
-          console.error("Session error:", sessionError);
-          setIsLoading(false);
-          return;
-        }
-
-        if (session?.user) {
-          console.log("User found, setting supabaseUser...");
-          setSupabaseUser(session.user);
-
-          // Create minimal user immediately to prevent loading state
-          const minimalUser = {
-            id: session.user.id,
-            name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
-            email: session.user.email || "",
-            avatar: session.user.user_metadata?.avatar_color || "#d4a574",
-          };
-          setUser(minimalUser);
-          console.log("Minimal user set:", minimalUser.name);
-
-          // Now try to fetch full profile (non-blocking)
-          try {
-            const profile = await fetchProfile(session.user.id, session.user.email || "");
-            if (isMounted && profile) {
-              setUser(profile);
-              console.log("Full profile loaded");
-            }
-
-            const userTeams = await fetchTeams(session.user.id);
-            if (isMounted) {
-              setTeams(userTeams);
-              const savedTeamId = localStorage.getItem("vibe-pm-current-team");
-              const teamToSelect = userTeams.find((t) => t.id === savedTeamId) || userTeams[0];
-              setCurrentTeam(teamToSelect || null);
-              console.log("Teams loaded:", userTeams.length);
-            }
-          } catch (profileError) {
-            console.error("Error fetching profile/teams:", profileError);
-            // User already set with minimal data, so this is fine
-          }
-        } else {
-          console.log("No session, user not logged in");
-        }
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-      } finally {
-        if (isMounted) {
-          console.log("Setting isLoading to false");
-          setIsLoading(false);
-        }
-      }
-    };
-
-    initAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
-      console.log("Auth state change:", event);
-
-      if (event === "SIGNED_IN" && session?.user) {
-        setIsLoading(true); // Show loading while fetching profile/teams
-        setSupabaseUser(session.user);
-        try {
-          const profile = await fetchProfile(session.user.id, session.user.email || "");
-          // If profile fetch failed, create a minimal user object
-          if (profile) {
-            setUser(profile);
-          } else {
-            setUser({
-              id: session.user.id,
-              name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
-              email: session.user.email || "",
-              avatar: session.user.user_metadata?.avatar_color || "#d4a574",
-            });
-          }
-
-          const userTeams = await fetchTeams(session.user.id);
-          setTeams(userTeams);
-          setCurrentTeam(userTeams[0] || null);
-        } catch (error) {
-          console.error("Error in SIGNED_IN handler:", error);
-          // Still set a minimal user so app doesn't get stuck
-          setUser({
-            id: session.user.id,
-            name: session.user.user_metadata?.name || session.user.email?.split("@")[0] || "User",
-            email: session.user.email || "",
-            avatar: "#d4a574",
-          });
-        }
-        setIsLoading(false);
-      } else if (event === "SIGNED_OUT") {
-        setSupabaseUser(null);
-        setUser(null);
+      if (!memberData || memberData.length === 0) {
         setTeams([]);
         setCurrentTeam(null);
-        setIsLoading(false);
-      } else if (event === "TOKEN_REFRESHED") {
-        // Session was refreshed, user is still authenticated
-        console.log("Token refreshed");
-      } else if (event === "INITIAL_SESSION") {
-        // Initial session loaded - handled by initAuth
-        console.log("Initial session loaded");
+        return;
       }
+
+      const teamIds = memberData.map((m: { team_id: string }) => m.team_id);
+      const { data: teamsData } = await supabase
+        .from("teams")
+        .select("*")
+        .in("id", teamIds);
+
+      const userTeams = teamsData || [];
+      setTeams(userTeams);
+
+      // Restore last selected team or use first team
+      const savedTeamId = localStorage.getItem("vibe-pm-current-team");
+      const teamToSelect = userTeams.find((t) => t.id === savedTeamId) || userTeams[0];
+      setCurrentTeam(teamToSelect || null);
+    } catch (error) {
+      console.error("Error loading teams:", error);
+    }
+  }, [supabase]);
+
+  // Fetch and update user profile (non-blocking)
+  const loadProfile = useCallback(async (userId: string, email: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (profile) {
+        setUser({
+          id: profile.id,
+          name: profile.name,
+          email: email,
+          avatar: profile.avatar_color,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading profile:", error);
+    }
+  }, [supabase]);
+
+  // Handle session changes
+  const handleSession = useCallback((session: Session | null) => {
+    if (session?.user) {
+      // Set user immediately from session data
+      setSupabaseUser(session.user);
+      setUser(createUserFromSession(session.user));
+      setIsLoading(false);
+
+      // Load additional data in background (non-blocking)
+      loadProfile(session.user.id, session.user.email || "");
+      loadTeams(session.user.id);
+    } else {
+      setSupabaseUser(null);
+      setUser(null);
+      setTeams([]);
+      setCurrentTeam(null);
+      setIsLoading(false);
+    }
+  }, [loadProfile, loadTeams]);
+
+  // Initialize auth
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleSession(session);
     });
 
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, [supabase, fetchProfile, fetchTeams]);
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase, handleSession]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    console.log("Login attempt for:", email);
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
-      console.error("Login error:", error);
       return { success: false, error: error.message };
     }
 
-    console.log("Login successful, session:", data.session ? "exists" : "missing");
-
-    // Immediately set the user to prevent loading state
+    // Set user immediately
     if (data.session?.user) {
-      setSupabaseUser(data.session.user);
-      setUser({
-        id: data.session.user.id,
-        name: data.session.user.user_metadata?.name || data.session.user.email?.split("@")[0] || "User",
-        email: data.session.user.email || "",
-        avatar: data.session.user.user_metadata?.avatar_color || "#d4a574",
-      });
-      setIsLoading(false);
+      handleSession(data.session);
     }
 
     return { success: true };
@@ -245,31 +168,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem("vibe-pm-current-team");
-    // Full page refresh to ensure clean state
     window.location.href = "/login";
   };
 
   const createTeam = async (name: string): Promise<Team | null> => {
-    console.log("createTeam called with:", name);
-    console.log("supabaseUser:", supabaseUser);
+    if (!supabaseUser) return null;
 
-    if (!supabaseUser) {
-      console.error("No supabaseUser - cannot create team");
-      return null;
-    }
-
-    // First check if profile exists
-    const { data: profile, error: profileError } = await supabase
+    // Ensure profile exists
+    const { data: profile } = await supabase
       .from("profiles")
       .select("id")
       .eq("id", supabaseUser.id)
       .single();
 
-    console.log("Profile check:", profile, profileError);
-
     if (!profile) {
-      console.error("No profile found for user - creating one");
-      // Create profile if missing
       await supabase.from("profiles").insert({
         id: supabaseUser.id,
         name: supabaseUser.user_metadata?.name || supabaseUser.email?.split("@")[0] || "User",
@@ -285,8 +197,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .select()
       .single();
-
-    console.log("Team creation result:", team, error);
 
     if (error || !team) {
       console.error("Error creating team:", error);

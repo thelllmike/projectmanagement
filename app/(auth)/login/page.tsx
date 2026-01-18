@@ -41,31 +41,15 @@ export default function LoginPage() {
     const result = await login(email, password);
 
     if (result.success) {
-      // Wait for session to be saved to cookies
-      const supabase = createClient();
-
-      // Poll for session to be ready (max 3 seconds)
-      let attempts = 0;
-      while (attempts < 6) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          console.log("Session confirmed, redirecting...");
-          window.location.href = "/";
-          return;
-        }
-        await new Promise(resolve => setTimeout(resolve, 500));
-        attempts++;
-      }
-
-      // Fallback: redirect anyway after timeout
-      console.log("Session not confirmed, redirecting anyway...");
-      window.location.href = "/";
+      // Small delay to ensure cookies are set, then redirect
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
       return;
     } else {
       setError(result.error || "Login failed");
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   };
 
   return (

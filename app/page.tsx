@@ -20,12 +20,6 @@ export default function Home() {
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login");
-    }
-  }, [user, isLoading, router]);
-
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newTeamName.trim()) {
@@ -39,7 +33,8 @@ export default function Home() {
   // Teams are already filtered by user membership from AuthContext
   const userTeams = teams;
 
-  if (isLoading) {
+  // Only show brief loading on initial page load, not after login
+  if (isLoading && !user) {
     return (
       <div className={styles.loadingContainer}>
         <span className={styles.loadingText}>Loading...</span>
@@ -47,7 +42,9 @@ export default function Home() {
     );
   }
 
+  // Middleware handles redirect to /login, but fallback just in case
   if (!user) {
+    // Don't show anything, middleware will redirect
     return null;
   }
 
