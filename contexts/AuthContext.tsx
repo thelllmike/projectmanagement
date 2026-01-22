@@ -58,12 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select("*")
         .in("id", teamIds);
 
-      const userTeams = teamsData || [];
+      const userTeams: Team[] = (teamsData || []) as Team[];
       setTeams(userTeams);
 
       // Restore last selected team or use first team
       const savedTeamId = localStorage.getItem("vibe-pm-current-team");
-      const teamToSelect = userTeams.find((t) => t.id === savedTeamId) || userTeams[0];
+      const teamToSelect = userTeams.find((t: Team) => t.id === savedTeamId) || userTeams[0];
       setCurrentTeam(teamToSelect || null);
     } catch (error) {
       console.error("Error loading teams:", error);
@@ -115,12 +115,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Initialize auth
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
       handleSession(session);
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
       handleSession(session);
     });
 

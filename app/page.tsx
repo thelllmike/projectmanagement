@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import styles from "./page.module.css";
 import TodoList from "@/components/TodoList/TodoList";
@@ -15,7 +14,6 @@ const KanbanBoard = dynamic(
 
 export default function Home() {
   const { user, teams, currentTeam, isLoading, logout, createTeam, switchTeam } = useAuth();
-  const router = useRouter();
   const [showTeamMenu, setShowTeamMenu] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
